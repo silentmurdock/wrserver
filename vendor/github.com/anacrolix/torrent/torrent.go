@@ -1095,6 +1095,14 @@ func (t *Torrent) updatePieceCompletion(piece pieceIndex) bool {
 	return changed
 }
 
+func (t *Torrent) checkPieceCompletion(piece pieceIndex) bool {
+	p := t.piece(piece)
+	uncached := t.pieceCompleteUncached(piece)
+	cached := p.completion()
+	changed := cached != uncached
+	return changed
+}
+
 // Non-blocking read. Client lock is not required.
 func (t *Torrent) readAt(b []byte, off int64) (n int, err error) {
 	p := &t.pieces[off/t.info.PieceLength]
