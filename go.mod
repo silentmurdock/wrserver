@@ -1,19 +1,19 @@
-module peerstohttp
+module github.com/silentmurdock/wrserver
 
-go 1.12
+go 1.14
 
 require (
-	github.com/anacrolix/envpprof v1.0.0 // indirect
-	github.com/anacrolix/missinggo v0.0.0-20190216073122-118c32fc17c8 // indirect
-	github.com/anacrolix/mmsg v0.0.0-20180808012353-5adb2c1127c0 // indirect
-	github.com/anacrolix/sync v0.1.0 // indirect
-	github.com/anacrolix/torrent v0.0.0-20190130065402-b102ce901ad9
-	github.com/anacrolix/utp v0.0.0-20180219060659-9e0e1d1d0572 // indirect
-	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
-	github.com/google/btree v1.0.0 // indirect
-	github.com/gorilla/mux v1.7.0
-	github.com/pkg/errors v0.8.1 // indirect
-	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	golang.org/x/net v0.0.0-20190213061140-3a22650c66bd // indirect
-	golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a // indirect
+	github.com/PuerkitoBio/goquery v1.5.1
+	github.com/anacrolix/log v0.7.0
+	github.com/anacrolix/torrent v1.15.2
+	github.com/dustin/go-humanize v1.0.0
+	github.com/gorilla/handlers v1.4.2
+	github.com/gorilla/mux v1.7.4
+	github.com/gorilla/websocket v1.4.2
+	github.com/hashicorp/golang-lru v0.5.4
+	github.com/iamacarpet/go-torrent-storage-fat32 v0.0.0-20171101151035-310562e19d55
+	github.com/kolo/xmlrpc v0.0.0-20200310150728-e0350524596b // indirect
+	github.com/oz/osdb v0.0.0-20190204162748-da06ada9cdc1
+	golang.org/x/text v0.3.2
+	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
 )
