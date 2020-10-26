@@ -202,16 +202,17 @@ func (r *reader) readOnceAt(b []byte, pos int64, ctxErr *error) (n int, err erro
 	}
 	for {
 		avail := r.waitAvailable(pos, int64(len(b)), ctxErr)
-		if avail == 0 {
+		//if avail == 0 {
 			if r.t.closed.IsSet() {
 				err = errors.New("torrent closed")
+				r.log(log.Fstr("Torrent closed"))
 				return
 			}
 			if *ctxErr != nil {
 				err = *ctxErr
 				return
 			}
-		}
+		//}
 		pi := pieceIndex(r.torrentOffset(pos) / r.t.info.PieceLength)
 		ip := r.t.info.Piece(pi)
 		po := r.torrentOffset(pos) % r.t.info.PieceLength
@@ -221,14 +222,31 @@ func (r *reader) readOnceAt(b []byte, pos int64, ctxErr *error) (n int, err erro
 			err = nil
 			return
 		}
+
 		r.t.cl.lock()
 		// TODO: Just reset pieces in the readahead window. This might help
 		// prevent thrashing with small caches and file and piece priorities.
-		r.log(log.Fstr("error reading torrent %s piece %d offset %d, %d bytes: %v",
-			r.t.infoHash.HexString(), pi, po, len(b1), err))
-		if !r.t.updatePieceCompletion(pi) {
-			r.log(log.Fstr("piece %d completion unchanged", pi))
+		/*r.log(log.Fstr("error reading torrent %s piece %d offset %d, %d bytes: %v",
+			r.t.infoHash.HexString(), pi, po, len(b1), err))*/
+
+		// Clear only the pieces that corresponds to the next X MByte of data. Same as the default readahead window size.
+		clearahead := int((r.readahead / r.t.info.PieceLength))
+
+		i := pi
+		imax := pi + clearahead
+		if imax > len(r.t.pieces) {
+			imax = len(r.t.pieces)
 		}
+
+		for i < imax {					
+			if r.t.checkPieceCompletion(pieceIndex(i)) == true {
+				if !r.t.updatePieceCompletion(pieceIndex(i)) {
+					r.log(log.Fstr("piece %d completion unchanged", pieceIndex(i)))
+				}
+			}
+			i++
+		}
+
 		r.t.cl.unlock()
 	}
 }
