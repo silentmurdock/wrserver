@@ -238,7 +238,7 @@ func (r *reader) readOnceAt(b []byte, pos int64, ctxErr *error) (n int, err erro
 			imax = len(r.t.pieces)
 		}
 
-		for i < imax {					
+		for i <= imax {					
 			if r.t.checkPieceCompletion(pieceIndex(i)) == true {
 				if !r.t.updatePieceCompletion(pieceIndex(i)) {
 					r.log(log.Fstr("piece %d completion unchanged", pieceIndex(i)))
