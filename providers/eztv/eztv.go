@@ -32,7 +32,7 @@ func GetShowMagnetByImdb(imdb string, season string, episode string, ch chan<-[]
 	id := make([]string, 1)
 	id[0] = strings.TrimPrefix(imdb, "tt")
 
-	req, err := http.NewRequest("GET", "https://eztv.io/api/get-torrents?imdb_id=" + id[0] + "&limit=100&page=1", nil)
+	req, err := http.NewRequest("GET", "https://eztv.re/api/get-torrents?imdb_id=" + id[0] + "&limit=100&page=1", nil)
 	if err != nil {
 		ch <- []out.OutputShowStruct{}
 		return
@@ -131,7 +131,7 @@ func GetShowMagnetByImdb(imdb string, season string, episode string, ch chan<-[]
 func scrapeData(imdb string, page int, innerCh chan<-apiShowResponse) {
 	response := apiShowResponse{}
 
-	req, err := http.NewRequest("GET", "https://eztv.io/api/get-torrents?imdb_id=" + imdb + "&limit=100&page=" + strconv.Itoa(page), nil)
+	req, err := http.NewRequest("GET", "https://eztv.re/api/get-torrents?imdb_id=" + imdb + "&limit=100&page=" + strconv.Itoa(page), nil)
 	if err != nil {
 		innerCh <- response
 	}

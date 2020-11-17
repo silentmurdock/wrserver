@@ -2,21 +2,17 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"sort"
-	"strconv"
-	"strings"
 	"time"
 
 	alog "github.com/anacrolix/log"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/storage"
-	"github.com/dustin/go-humanize"
 	"github.com/iamacarpet/go-torrent-storage-fat32"
 	"github.com/oz/osdb"
 
@@ -47,7 +43,7 @@ var gettingTorrent bool = false
 var receiverEnabled bool = false
 var receivedHash string = ""
 
-func startTorrent(settings serviceSettings) *torrent.Client {
+func startTorrentClient(settings serviceSettings) *torrent.Client {
 	torrents = make(map[string]*torrentLeaf)
 	
 	cfg := torrent.NewDefaultClientConfig()
@@ -65,8 +61,8 @@ func startTorrent(settings serviceSettings) *torrent.Client {
 
 	cfg.EstablishedConnsPerTorrent = *settings.MaxConnections
 	cfg.NoDHT = *settings.NoDHT
-	cfg.DisableIPv6 = *settings.DisableIPv6
-	cfg.DisableUTP = *settings.DisableUTP
+	cfg.DisableIPv6 = true
+	cfg.DisableUTP = true
 
 	// Discard or show the logs
 	if *settings.EnableLog == false {
@@ -91,7 +87,9 @@ func startTorrent(settings serviceSettings) *torrent.Client {
 	newcl, err := torrent.NewClient(cfg)
 
 	if err != nil {
-		procError <- err.Error()
+		go func() {
+			procError <- err.Error()
+		}()
 	}
 
 	return newcl
@@ -133,7 +131,7 @@ func addMagnet(uri string) *torrent.Torrent {
 
 	// Intended for streaming so only one torrent stream allowed at a time
 	if len(torrents) > 0 || gettingTorrent == true {
-		log.Println("Only one torrent stream allowed at a time")
+		log.Println("Only one torrent stream allowed at a time.")
 		return nil
 	}
 
@@ -193,184 +191,6 @@ func sortSubtitleFiles(files osdb.Subtitles, lang string) {
 	})
 }
 
-func appendString(buf *bytes.Buffer, strs ...string) {
-	for _, s := range strs {
-		buf.WriteString(s)
-	}
-}
-
-func jsonFilesList(address string, files []*torrent.File) string {
-	sortFiles(files)
-
-	var list bytes.Buffer
-
-	firstLine := true
-
-	appendString(&list, "[")
-
-	for _, f := range files {
-		path := f.DisplayPath()
-		length := strconv.FormatInt(f.FileInfo().Length, 10)
-
-		if firstLine {
-			firstLine = false
-		} else {
-			appendString(&list, ",\n")
-		}
-
-		appendString(&list, "{\"name\":\"", path, "\", \"url\":\"http://", address, "/api/get/",
-			f.Torrent().InfoHash().String(), "/",
-			base64.StdEncoding.EncodeToString([]byte(path)), "\", \"length\":\"", length, "\"}")
-	}
-
-	appendString(&list, "]")
-
-	return list.String()
-}
-
-func subtitleFilesList(address string, files osdb.Subtitles, lang string) string {
-	sortSubtitleFiles(files, lang)
-
-	var list bytes.Buffer
-
-	firstLine := true
-
-	appendString(&list, "[")
-
-	for _, f := range files {
-		if f.SubFormat == "srt" {
-			if firstLine {
-				firstLine = false
-			} else {
-				appendString(&list, ",\n")
-			}
-
-			workSubFileName := strings.ReplaceAll(f.SubFileName, "\"", "")
-			workSubFileName = strings.ReplaceAll(workSubFileName, "\\", "")
-
-			workMovieReleaseName := strings.ReplaceAll(f.MovieReleaseName, "\"", "")
-			workMovieReleaseName = strings.ReplaceAll(workMovieReleaseName, "\\", "")
-
-			appendString(&list, "{\"lang\":\"", f.ISO639, "\", \"subtitlename\":\"", workSubFileName,
-				 "\", \"releasename\":\"", workMovieReleaseName, "\", \"subformat\":\"", f.SubFormat,
-				 "\", \"subencoding\":\"", f.SubEncoding, "\", \"zipdownload\":\"http://", address, "/api/getsubtitle/",
-				base64.URLEncoding.EncodeToString([]byte(f.ZipDownloadLink)), "/encode/", f.SubEncoding, "/subtitle.srt\"}")
-		}
-	}
-
-	appendString(&list, "]")
-
-	return list.String()
-}
-
-func deleteTorrent() string {
-	var list bytes.Buffer
-
-	appendString(&list, "[{\"message\":\"Torrent deleted\"}]")
-
-	return list.String()
-}
-
-func deleteAllTorrent() string {
-	var list bytes.Buffer
-
-	appendString(&list, "[{\"message\":\"All torrent deleted\"}]")
-
-	return list.String()
-}
-
-func showAllTorrent() string {
-	var list bytes.Buffer
-
-	firstLine := true
-
-	appendString(&list, "[")
-
-	for _, thistorrent := range torrents {
-		if firstLine {
-			firstLine = false
-		} else {
-			appendString(&list, ",\n")
-		}
-
-		appendString(&list, "{\"name\":\"", thistorrent.torrent.Name(), "\", \"hash\":\"",
-			thistorrent.torrent.InfoHash().String(), "\", \"length\":\"", strconv.FormatInt(thistorrent.torrent.Length(), 10), "\"}")
-
-		log.Println("Active torrent:", thistorrent.torrent.InfoHash().String())
-	}
-
-	if list.String() == "[" {
-		appendString(&list, "{\"message\":\"No active torrent found\"}]")
-	} else {
-		appendString(&list, "]")
-	}
-
-	return list.String()
-}
-
-func downloadStats(address string, torr *torrent.Torrent) string {
-	var list bytes.Buffer
-
-	currentProgress := torr.BytesCompleted()
-
-	torrWorkTime := time.Now()
-	torrDivTime := torrWorkTime.Sub(torrents[torr.InfoHash().String()].prevtime).Seconds()
-	if uint64(torrDivTime) <= 0 {
-		torrDivTime = 1
-	}
-	torrents[torr.InfoHash().String()].prevtime = torrWorkTime
-
-	downloadSpeed := humanize.Bytes(uint64(currentProgress - torrents[torr.InfoHash().String()].progress) / uint64(torrDivTime)) + "/s"
-	torrents[torr.InfoHash().String()].progress = currentProgress
-
-	complete := humanize.Bytes(uint64(currentProgress))
-	percent :=  humanize.FormatFloat("#.", float64(currentProgress) / float64(torr.Info().TotalLength()) * 100)
-	size := humanize.Bytes(uint64(torr.Info().TotalLength()))
-	peers := strconv.Itoa(torr.Stats().ActivePeers) + "/" + strconv.Itoa(torr.Stats().TotalPeers)
-
-	//log.Println("Download speed:", downloadSpeed, "Downloaded data:", complete, "Total length:", size)
-	//log.Println("Active peers:", torr.Stats().ActivePeers, "Total peers", torr.Stats().TotalPeers, "Percent:", percent)
-
-	appendString(&list, "[{\"downspeed\":\"",downloadSpeed,"\", \"downdata\":\"",
-		complete, "\", \"downpercent\":\"", percent, "\", \"fulldata\":\"", size, "\", \"peers\":\"", peers, "\"}]")
-
-	// Wait 3 second because Long Polling
-	time.Sleep(3 * time.Second)
-	return list.String()
-}
-
-func onlyOneTorrent() string {
-	var list bytes.Buffer
-
-	appendString(&list, "[{\"message\":\"Only one torrent stream allowed at a time\"}]")
-
-	return list.String()
-}
-
-func serverInfo() string {
-	var list bytes.Buffer
-
-	appendString(&list, "[{\"message\":\"White Raven Server v" + version + "\"}]")
-
-	return list.String()
-}
-
-func serverStop() string {
-	var list bytes.Buffer
-
-	appendString(&list, "[{\"message\":\"Server Stopped\"}]")
-
-	return list.String()
-}
-
-func restartServer() string {
-	var list bytes.Buffer
-
-	appendString(&list, "[{\"message\":\"Restart Server\"}]")
-
-	return list.String()
-}
-
 func getFileByPath(search string, files []*torrent.File) int {
 
 	for i, f := range files {
@@ -384,17 +204,7 @@ func getFileByPath(search string, files []*torrent.File) int {
 
 func serveTorrentFile(w http.ResponseWriter, r *http.Request, file *torrent.File) {
 	reader := file.NewReader()
-
-	// Only the first 512 bytes are used to sniff the content type.
-	buffer := make([]byte, 512)
-	_, err := reader.Read(buffer)
-	if err != nil {
-		return
-	}
-	reader.Seek(0, 0)
-
-	// Always returns a valid content-type and "application/octet-stream" if no others seemed to match.
-	contentType := http.DetectContentType(buffer)
+	reader.SetReadahead(8 * 1 << 20)
 
 	path := file.FileInfo().Path
 	fname := ""
@@ -403,9 +213,6 @@ func serveTorrentFile(w http.ResponseWriter, r *http.Request, file *torrent.File
 	} else {
 		fname = path[len(path)-1]
 	}
-
-	w.Header().Set("Content-Disposition", "filename="+fname)
-	w.Header().Set("Content-Type", contentType)
 
 	http.ServeContent(w, r, fname, time.Unix(0, 0), reader)
 }
@@ -863,16 +670,12 @@ func createServerPage() string {
 				    	<button id="sendbutton" type="button" class="btn btn-primary btn-block">SEND TO WHITE RAVEN</button>
 					</div>
 				</div>
-				<a href="http://www.patreon.com/murdock"><div id="website">White Raven's Website</div></a>
+				<a href="http://github.com/silentmurdock"><div id="website">White Raven's Website</div></a>
 				<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACQAAAAkCAYAAADhAJiYAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAAAZiS0dEAAAAAAAA+UO7fwAAAAlwSFlzAAAASAAAAEgARslrPgAAAg1JREFUWMPtlz1rFFEUht+j0So2IQF1k6CNELBMp6Cx1UQhMaZIKWJj+nTp1NJOURvxFwjBxiAu2SI/QQMpdN1IsElK4+5jkbvkMDA7XxcCMi8MnLkf7zznzL13GKlWrWqyqgbAdUnXwm3LzDZPNCNgjWOtVfU7daLZ/FdAwAKwWvQBwCowH5UaeAz0wjp5luhLXUOurwesxIJZcjAA34HzWUDAReCn6+sB97OeN/CVAROSXuv4eGhJmjazX1nGZtaRNC1pq98k6S0wXhpI0nNJwyFuS7pnZnt5q2tmu5LmJHVC0zlJT0sBAZckLbqmZTP7nRfGQe1JWnZNS8BkmQotSjod4i0z+1IUxkF9lrQRbocSieYGuuXiV2VhnN6neOcGuuriZgSgVop3bqBRF7cjAP1w8VgZoEMXn4kAdNbFf9IGDQ0w6Ei6EuKGpK8p4zZ1dDz04zQ1XLxbOB3goztlH1YtD/DI+a2njRv0yvykB1WBEh7rhWcDE8Bfl9WNCtWZcT6HWZ+PQUZvnNEOMFrCYwTYdj4vyyYmoAEcOLMmMFIQpunm7wMXSgMF0zmg60y/ATdzzJtJVKYLzFaCceYrCSiAT2HnTAHD4ZoKbRuJsV3gSRSYRKUOKK594E5UGAc1BrwIOyVLXeBd0TVT6kcxbNu7km5Luiypv43bknZ0dM58MLMY38BatWpF1T8njjLwLgYRQgAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAxOS0xMC0yN1QwNjo1NzoyNCswMDowMB20BXMAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMTktMTAtMjdUMDY6NTc6MjQrMDA6MDBs6b3PAAAAKHRFWHRzdmc6YmFzZS11cmkAZmlsZTovLy90bXAvbWFnaWNrLU4tZUZjUjlpSONKeQAAAABJRU5ErkJggg==" title="Stop The Server" id="power">
 			</body>
 			</html>`
 
-	var list bytes.Buffer
-
-	appendString(&list, html)
-
-	return list.String()
+	return html
 }
 
 func setReceivedMagnetHash(hash string) string {

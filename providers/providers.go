@@ -1,7 +1,6 @@
 package providers
 
 import (
-	"encoding/json"
 	"net/url"
 	"strings"
 	"sort"
@@ -18,7 +17,7 @@ import (
 	out "github.com/silentmurdock/wrserver/providers/output"
 )
 
-func GetMovieMagnet(imdbid string, query string, sources []string) string {
+func GetMovieMagnet(imdbid string, query string, sources []string) []out.OutputMovieStruct {
 	outputMovieData := []out.OutputMovieStruct{}
 
 	ch := make(chan []out.OutputMovieStruct)
@@ -94,21 +93,11 @@ func GetMovieMagnet(imdbid string, query string, sources []string) string {
 		sj, _ := strconv.ParseInt(outputMovieData[j].Seeds, 10, 64)
 		return si > sj
 	})
-
-	var jsonData []byte
-	jsonData, err := json.Marshal(outputMovieData)
-	if err != nil {
-	    return ""
-	}
 	
-	if string(jsonData) == "[]" {
-		return "";
-	}
-	
-	return string(jsonData)
+	return outputMovieData
 }
 
-func GetShowMagnet(imdbid string, query string, season string, episode string, sources []string) string {
+func GetShowMagnet(imdbid string, query string, season string, episode string, sources []string) []out.OutputShowStruct {
 	outputShowData := []out.OutputShowStruct{}
 
 	ch := make(chan []out.OutputShowStruct)
@@ -181,18 +170,8 @@ func GetShowMagnet(imdbid string, query string, season string, episode string, s
 		sj, _ := strconv.ParseInt(outputShowData[j].Seeds, 10, 64)
 		return si > sj
 	})
-
-	var jsonData []byte
-	jsonData, err := json.Marshal(outputShowData)
-	if err != nil {
-	    return ""
-	}
 	
-	if string(jsonData) == "[]" {
-		return "";
-	}
-	
-	return string(jsonData)
+	return outputShowData
 }
 
 func SetTMDBKey(tmdbKey string) {

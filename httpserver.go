@@ -10,8 +10,8 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -115,6 +115,10 @@ func handleAPI(cors bool) {
 	routerAPI := mux.NewRouter()
 	routerAPI.SkipClean(true)
 
+	routerAPI.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, resourceNotFound(), http.StatusNotFound)
+	})
+
 	routerAPI.HandleFunc(urlAPI+"about", func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, serverInfo())
 	})
@@ -144,7 +148,7 @@ func handleAPI(cors bool) {
 			delete(torrents, thistorrent.torrent.InfoHash().String())		
 		}
 		
-		_, err := io.WriteString(w, restartServer())
+		_, err := io.WriteString(w, restartTorrentClient())
 		if err == nil {
 			go func() {
 				time.Sleep(1 * time.Nanosecond)
@@ -174,15 +178,16 @@ func handleAPI(cors bool) {
 			t := addMagnet(magnet)
 			if t != nil {
 				log.Println("Add torrent:", vars["hash"])
-				io.WriteString(w, jsonFilesList(r.Host, t.Files()))
+				io.WriteString(w, torrentFilesList(r.Host, t.Files()))
 				return
 			} else if len(torrents) == 0 {
+				http.Error(w, failedToAddTorrent(), http.StatusNotFound)
 				return
 			}
 		}
 
 		if len(torrents) > 0 {
-			io.WriteString(w, onlyOneTorrent())
+			http.Error(w, onlyOneTorrent(), http.StatusNotFound)
 		}
 	})
 
@@ -197,19 +202,24 @@ func handleAPI(cors bool) {
 
 			io.WriteString(w, deleteTorrent())
 		} else {
-			log.Println("Already deleted torrent:", vars["hash"])
-			return
+			http.Error(w, torrentNotFound(), http.StatusNotFound)
+			log.Println("Torrent not found:", vars["hash"])
 		}
 	})
 
 	routerAPI.HandleFunc(urlAPI+"deleteall", func(w http.ResponseWriter, r *http.Request) {
-		for _, thistorrent := range torrents {
-			log.Println("Delete torrent:", thistorrent.torrent.InfoHash().String())
-			stopAllFileDownload(thistorrent.torrent.Files())
-			thistorrent.torrent.Drop()
-			delete(torrents, thistorrent.torrent.InfoHash().String())		
+		if len(torrents) > 0 {
+			for _, thistorrent := range torrents {
+				log.Println("Delete torrent:", thistorrent.torrent.InfoHash().String())
+				stopAllFileDownload(thistorrent.torrent.Files())
+				thistorrent.torrent.Drop()
+				delete(torrents, thistorrent.torrent.InfoHash().String())		
+			}
+			io.WriteString(w, deleteAllTorrent())
+		} else {
+			http.Error(w, noActiveTorrentFound(), http.StatusNotFound)
+			log.Println("No active torrents found.")
 		}
-		io.WriteString(w, deleteAllTorrent())
 	})
 
 	routerAPI.HandleFunc(urlAPI+"get/{hash}/{base64path}", func(w http.ResponseWriter, r *http.Request) {
@@ -219,28 +229,34 @@ func handleAPI(cors bool) {
 			if t, ok := torrents[vars["hash"]]; ok {
 
 				idx := getFileByPath(string(d), t.torrent.Files())
-				file := t.torrent.Files()[idx]
+				if idx != -1 {
+					file := t.torrent.Files()[idx]
 
-				path := file.DisplayPath()
-				log.Println("Download torrent:", vars["hash"])
+					path := file.DisplayPath()
+					log.Println("Download torrent:", vars["hash"])
 
-				incFileClients(path, t)
+					incFileClients(path, t)
 
-				runtime.GC()
-				/*log.Println("Calculate Opensubtitles hash...")
-				fileHash := calculateOpensubtitlesHash(file)
-				log.Println("Opensubtitles hash calculated:", fileHash)*/
+					/*log.Println("Calculate Opensubtitles hash...")
+					fileHash := calculateOpensubtitlesHash(file)
+					log.Println("Opensubtitles hash calculated:", fileHash)*/
 
-				serveTorrentFile(w, r, file)
-				//stop downloading the file when no connections left
-				if decFileClients(path, t) <= 0 {
-					stopDownloadFile(file)					
+					serveTorrentFile(w, r, file)
+					//stop downloading the file when no connections left
+					if decFileClients(path, t) <= 0 {
+						stopDownloadFile(file)					
+					}
+				} else {
+					http.Error(w, invalidBase64Path(), http.StatusNotFound)
+					return
 				}
 			} else {
+				http.Error(w, torrentNotFound(), http.StatusNotFound)
 				log.Println("Unknown torrent:", vars["hash"])
 				return
 			}
 		} else {
+			http.Error(w, invalidBase64Path(), http.StatusNotFound)
 			log.Println(err)
 			return
 		}
@@ -253,8 +269,8 @@ func handleAPI(cors bool) {
 			log.Println("Check torrent stats:", vars["hash"])
 			io.WriteString(w, downloadStats(r.Host, t.torrent))
 		} else {
+			http.Error(w, torrentNotFound(), http.StatusNotFound)
 			log.Println("Unknown torrent:", vars["hash"])
-			return
 		}
 	})
 
@@ -264,7 +280,7 @@ func handleAPI(cors bool) {
 		// Create Opensubtitles client
 		c, err := osdb.NewClient()
 		if err != nil {
-			http.NotFound(w, r)
+			http.Error(w, failedToConnectToOpenSubtitles(), http.StatusNotFound)
 			return
 		}
 
@@ -272,7 +288,7 @@ func handleAPI(cors bool) {
 
 		// Anonymous Login with UserAgent string will set c.Token when successful
 		if err = c.LogIn("", "", ""); err != nil {
-			http.NotFound(w, r)
+			http.Error(w, failedToConnectToOpenSubtitles(), http.StatusNotFound)
 			return
 		}
 
@@ -329,12 +345,25 @@ func handleAPI(cors bool) {
 
 		res, err := c.SearchSubtitles(&params)
 		if err != nil {
-			http.NotFound(w, r)
+			http.Error(w, noSubtitlesFound(), http.StatusNotFound)
 			return
 		}
 
 		if len(res) == 0 {
-			http.NotFound(w, r)
+			http.Error(w, noSubtitlesFound(), http.StatusNotFound)
+			return
+		}
+
+		found := false
+		for _, f := range res {
+			if f.SubFormat == "srt" {
+				found = true
+				break
+			}
+		}
+
+		if found == false {
+			http.Error(w, noSubtitlesFound(), http.StatusNotFound)
 			return
 		}
 
@@ -348,7 +377,7 @@ func handleAPI(cors bool) {
 		// Create Opensubtitles client
 		c, err := osdb.NewClient()
 		if err != nil {
-			http.NotFound(w, r)
+			http.Error(w, failedToConnectToOpenSubtitles(), http.StatusNotFound)
 			return
 		}
 
@@ -356,7 +385,7 @@ func handleAPI(cors bool) {
 
 		// Anonymous Login with UserAgent string will set c.Token when successful
 		if err = c.LogIn("", "", ""); err != nil {
-			http.NotFound(w, r)
+			http.Error(w, failedToConnectToOpenSubtitles(), http.StatusNotFound)
 			return
 		}
 
@@ -412,12 +441,25 @@ func handleAPI(cors bool) {
 
 		res, err := c.SearchSubtitles(&params)
 		if err != nil {
-			http.NotFound(w, r)
+			http.Error(w, noSubtitlesFound(), http.StatusNotFound)
 			return
 		}
 
 		if len(res) == 0 {
-			http.NotFound(w, r)
+			http.Error(w, noSubtitlesFound(), http.StatusNotFound)
+			return
+		}
+
+		found := false
+		for _, f := range res {
+			if f.SubFormat == "srt" {
+				found = true
+				break
+			}
+		}
+
+		if found == false {
+			http.Error(w, noSubtitlesFound(), http.StatusNotFound)
 			return
 		}
 
@@ -450,7 +492,7 @@ func handleAPI(cors bool) {
 				// Create Opensubtitles client
 				c, err := osdb.NewClient()
 				if err != nil {
-					http.NotFound(w, r)
+					http.Error(w, failedToConnectToOpenSubtitles(), http.StatusNotFound)
 					return
 				}
 
@@ -458,7 +500,7 @@ func handleAPI(cors bool) {
 
 				// Anonymous Login with UserAgent string will set c.Token when successful
 				if err = c.LogIn("", "", ""); err != nil {
-					http.NotFound(w, r)
+					http.Error(w, failedToConnectToOpenSubtitles(), http.StatusNotFound)
 					return
 				}
 
@@ -492,25 +534,38 @@ func handleAPI(cors bool) {
 
 				res, err := c.SearchSubtitles(&params)
 				if err != nil {
-					http.NotFound(w, r)
+					http.Error(w, noSubtitlesFound(), http.StatusNotFound)
 					return
 				}
 
 				if len(res) == 0 {
-					http.NotFound(w, r)
+					http.Error(w, noSubtitlesFound(), http.StatusNotFound)
+					return
+				}
+
+				found := false
+				for _, f := range res {
+					if f.SubFormat == "srt" {
+						found = true
+						break
+					}
+				}
+
+				if found == false {
+					http.Error(w, noSubtitlesFound(), http.StatusNotFound)
 					return
 				}
 
 				log.Println("Subtitle found.")
 				io.WriteString(w, subtitleFilesList(r.Host, res, langs[0]))
 			} else {
+				http.Error(w, noSubtitlesFound(), http.StatusNotFound)
 				log.Println("Unknown torrent:", vars["hash"])
-				http.NotFound(w, r)
 				return
 			}
 		} else {
+			http.Error(w, noSubtitlesFound(), http.StatusNotFound)
 			log.Println(err)
-			http.NotFound(w, r)
 			return
 		}
 	})
@@ -522,7 +577,7 @@ func handleAPI(cors bool) {
 			
 			zipContent, err := fetchZip(string(subtitleurl))
 			if err != nil {
-				http.NotFound(w, r)
+				http.Error(w, failedToLoadSubtitle(), http.StatusNotFound)
 				return
 			}
 			
@@ -530,12 +585,12 @@ func handleAPI(cors bool) {
 				if strings.HasSuffix(strings.ToLower(f.Name), ".srt") == true {
 					fileHandler, err := f.Open()
 					if err != nil {
-						http.NotFound(w, r)
+						http.Error(w, failedToLoadSubtitle(), http.StatusNotFound)
 						return
 					}
 					data, err := ioutil.ReadAll(fileHandler)
 					if err != nil {
-						http.NotFound(w, r)
+						http.Error(w, failedToLoadSubtitle(), http.StatusNotFound)
 						return
 					}
 					fileHandler.Close()
@@ -563,14 +618,18 @@ func handleAPI(cors bool) {
 				}
 			}
 		} else {
-			//log.Println(err)
-			http.NotFound(w, r)
+			http.Error(w, failedToLoadSubtitle(), http.StatusNotFound)
 			return
 		}
 	})
 
 	routerAPI.HandleFunc(urlAPI+"torrents", func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, showAllTorrent())
+		if len(torrents) > 0 {
+			io.WriteString(w, showAllTorrent())
+		} else {
+			http.Error(w, noActiveTorrentFound(), http.StatusNotFound)
+			log.Println("No active torrents found.")
+		}
 	})
 
 	routerAPI.HandleFunc(urlAPI+"getmoviemagnet/imdb/{imdb}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
@@ -578,13 +637,13 @@ func handleAPI(cors bool) {
 		log.Printf("Getting movie magnet link by this imdb id: %v\n", vars["imdb"])
 
 		output := providers.GetMovieMagnet(vars["imdb"], "", strings.Split(vars["providers"], ","))
-		if output == "" {
-			log.Printf("Not found any magnet link.\n")
-		} else {
+		if len(output) > 0 {			
+			io.WriteString(w, displayMovieMagnetLinks(output))
 			log.Printf("Magnet link found.\n")
+		} else {
+			http.Error(w, noMagnetLinksFound(), http.StatusNotFound)
+			log.Printf("Not found any magnet link.\n")
 		}
-
-		io.WriteString(w, output)
 	})
 
 	routerAPI.HandleFunc(urlAPI+"getmoviemagnet/query/{query}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
@@ -592,13 +651,13 @@ func handleAPI(cors bool) {
 		log.Printf("Getting movie magnet link by this query: %v\n", vars["query"])
 
 		output := providers.GetMovieMagnet("", vars["query"], strings.Split(vars["providers"], ","))
-		if output == "" {
-			log.Printf("Not found any magnet link.\n")
-		} else {
+		if len(output) > 0 {			
+			io.WriteString(w, displayMovieMagnetLinks(output))
 			log.Printf("Magnet link found.\n")
+		} else {
+			http.Error(w, noMagnetLinksFound(), http.StatusNotFound)
+			log.Printf("Not found any magnet link.\n")
 		}
-
-		io.WriteString(w, output)
 	})
 
 	routerAPI.HandleFunc(urlAPI+"getmoviemagnet/imdb/{imdb}/query/{query}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
@@ -606,13 +665,13 @@ func handleAPI(cors bool) {
 		log.Printf("Getting movie magnet link by this imdb id: %v, query: %v\n", vars["imdb"], vars["query"])
 
 		output := providers.GetMovieMagnet(vars["imdb"], vars["query"], strings.Split(vars["providers"], ","))
-		if output == "" {
-			log.Printf("Not found any magnet link.\n")
-		} else {
+		if len(output) > 0 {			
+			io.WriteString(w, displayMovieMagnetLinks(output))
 			log.Printf("Magnet link found.\n")
+		} else {
+			http.Error(w, noMagnetLinksFound(), http.StatusNotFound)
+			log.Printf("Not found any magnet link.\n")
 		}
-
-		io.WriteString(w, output)
 	})
 
 	routerAPI.HandleFunc(urlAPI+"getshowmagnet/imdb/{imdb}/season/{season}/episode/{episode}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
@@ -620,13 +679,13 @@ func handleAPI(cors bool) {
 		log.Printf("Getting tv show magnet link by this imdb id: %v, season: %v, episode: %v\n", vars["imdb"], vars["season"], vars["episode"])
 
 		output := providers.GetShowMagnet(vars["imdb"], "", vars["season"], vars["episode"], strings.Split(vars["providers"], ","))
-		if output == "" {
-			log.Printf("Not found any magnet link.\n")
-		} else {
+		if len(output) > 0 {			
+			io.WriteString(w, displayShowMagnetLinks(output))
 			log.Printf("Magnet link found.\n")
+		} else {
+			http.Error(w, noMagnetLinksFound(), http.StatusNotFound)
+			log.Printf("Not found any magnet link.\n")
 		}
-
-		io.WriteString(w, output)
 	})
 
 	routerAPI.HandleFunc(urlAPI+"getshowmagnet/query/{query}/season/{season}/episode/{episode}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
@@ -634,13 +693,13 @@ func handleAPI(cors bool) {
 		log.Printf("Getting tv show magnet link by this query: %v, season: %v, episode: %v\n", vars["query"], vars["season"], vars["episode"])
 
 		output := providers.GetShowMagnet("", vars["query"], vars["season"], vars["episode"], strings.Split(vars["providers"], ","))
-		if output == "" {
-			log.Printf("Not found any magnet link.\n")
-		} else {
+		if len(output) > 0 {			
+			io.WriteString(w, displayShowMagnetLinks(output))
 			log.Printf("Magnet link found.\n")
+		} else {
+			http.Error(w, noMagnetLinksFound(), http.StatusNotFound)
+			log.Printf("Not found any magnet link.\n")
 		}
-
-		io.WriteString(w, output)
 	})
 
 	routerAPI.HandleFunc(urlAPI+"getshowmagnet/imdb/{imdb}/query/{query}/season/{season}/episode/{episode}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
@@ -648,13 +707,13 @@ func handleAPI(cors bool) {
 		log.Printf("Getting tv show magnet link by this imdb id: %v, query: %v, season: %v, episode: %v\n", vars["imdb"], vars["query"], vars["season"], vars["episode"])
 
 		output := providers.GetShowMagnet(vars["imdb"], vars["query"], vars["season"], vars["episode"], strings.Split(vars["providers"], ","))
-		if output == "" {
-			log.Printf("Not found any magnet link.\n")
-		} else {
+		if len(output) > 0 {			
+			io.WriteString(w, displayShowMagnetLinks(output))
 			log.Printf("Magnet link found.\n")
+		} else {
+			http.Error(w, noMagnetLinksFound(), http.StatusNotFound)
+			log.Printf("Not found any magnet link.\n")
 		}
-
-		io.WriteString(w, output)
 	})
 
 	routerAPI.HandleFunc(urlAPI+"tmdbdiscover/type/{type}/genretype/{genretype}/sort/{sort}/date/{date}/lang/{lang}/page/{page}", func(w http.ResponseWriter, r *http.Request) {
@@ -662,7 +721,11 @@ func handleAPI(cors bool) {
 		log.Println("Get TMDB list by genre")
 
 		output := providers.MirrorTmdbDiscover(vars["type"], vars["genretype"], vars["sort"], vars["date"], vars["lang"], vars["page"])
-		io.WriteString(w, output)
+		if output != "" {
+			io.WriteString(w, outputTmdbData(output))
+		} else {
+			http.Error(w, noTmdbDataFound(), http.StatusNotFound)
+		}
 	})
 
 	routerAPI.HandleFunc(urlAPI+"tmdbsearch/type/{type}/lang/{lang}/page/{page}/text/{text}", func(w http.ResponseWriter, r *http.Request) {
@@ -670,7 +733,11 @@ func handleAPI(cors bool) {
 		log.Println("Get TMDB search")
 
 		output := providers.MirrorTmdbSearch(vars["type"], vars["lang"], vars["page"], vars["text"])
-		io.WriteString(w, output)
+		if output != "" {
+			io.WriteString(w, outputTmdbData(output))
+		} else {
+			http.Error(w, noTmdbDataFound(), http.StatusNotFound)
+		}
 	})
 
 	routerAPI.HandleFunc(urlAPI+"tmdbinfo/type/{type}/tmdbid/{tmdbid}/lang/{lang}", func(w http.ResponseWriter, r *http.Request) {
@@ -678,7 +745,11 @@ func handleAPI(cors bool) {
 		log.Println("Get TMDB info")
 
 		output := providers.MirrorTmdbInfo(vars["type"], vars["tmdbid"], vars["lang"])
-		io.WriteString(w, output)
+		if output != "" {
+			io.WriteString(w, outputTmdbData(output))
+		} else {
+			http.Error(w, noTmdbDataFound(), http.StatusNotFound)
+		}
 	})
 
 	routerAPI.HandleFunc(urlAPI+"receivemagnet/{todo}", func(w http.ResponseWriter, r *http.Request) {
@@ -741,6 +812,10 @@ func handleAPI(cors bool) {
 	sendMagnetPage := mux.NewRouter()
 	sendMagnetPage.SkipClean(true)
 
+	sendMagnetPage.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, resourceNotFound(), http.StatusNotFound)
+	})
+
 	sendMagnetPage.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {		
 		io.WriteString(w, createServerPage())
 	})
@@ -753,25 +828,42 @@ func handleAPI(cors bool) {
 	}
 }
 
-func startHTTPServer(addr string, cors bool) *http.Server {
-	srv := &http.Server{
-		Addr: addr,
+func getLocalIP() string {
+    conn, err := net.Dial("udp", "8.8.8.8:80")
+    if err != nil {
+        return "127.0.0.1"
+    }
+    defer conn.Close()
+
+    localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+    return localAddr.IP.String()
+}
+
+func startHTTPServer(host string, port int, cors bool) *http.Server {
+	newsrv := &http.Server{
+		Addr: fmt.Sprintf("%s:%d", host, port),
 		ReadTimeout:  38 * time.Second,
 		WriteTimeout: 38 * time.Second,
 	}
 
+	localIP := host
+	if localIP == "" {
+		localIP = getLocalIP()
+	}
+
 	// Must appear
-	fmt.Printf("White Raven Server Version %s Started On Address: http://127.0.0.1%s\n", version, srv.Addr)
+	fmt.Printf("White Raven Server Version %s Started On Address: http://%s:%d\n", version, localIP, port)
 
 	handleAPI(cors)
 
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
+		if err := newsrv.ListenAndServe(); err != nil {
 			// cannot panic, because this probably is an intentional close
 			if err == http.ErrServerClosed {
-				fmt.Printf("HTTP Server Closed")
+				fmt.Printf("HTTP Server Closed\n")
 			} else {
-				fmt.Printf("HTTP Server Error: %s", err)
+				fmt.Printf("HTTP Server Error: %s\n", err)
 			}
 			time.Sleep(1 * time.Nanosecond)
 			procQuit <- true
@@ -779,5 +871,5 @@ func startHTTPServer(addr string, cors bool) *http.Server {
 	}()
 
 	// returning reference so caller can call Shutdown()
-	return srv
+	return newsrv
 }

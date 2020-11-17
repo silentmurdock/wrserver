@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -21,8 +20,6 @@ type serviceSettings struct {
 	UploadRate      *int
 	MaxConnections  *int
 	NoDHT           *bool
-	DisableIPv6		*bool
-	DisableUTP 		*bool
 	EnableLog		*bool
 	StorageType 	*string
 	MemorySize		*int64
@@ -44,7 +41,10 @@ func quit(srv *http.Server) {
 	log.Println("Quitting")
 
 	srv.Close()
-	cl.Close()
+
+	if cl != nil {
+		cl.Close()
+	}
 }
 
 func handleSignals() {
@@ -59,7 +59,7 @@ func handleSignals() {
 	}()
 }
 
-func torrentRestart(saveSettings serviceSettings, receivedArgs []int64, srv *http.Server) {
+func waitingForSignals(saveSettings serviceSettings, receivedArgs []int64, srv *http.Server) {
 	if receivedArgs[0] != -1 && receivedArgs[1] != -1 {
 		*saveSettings.DownloadRate = int(receivedArgs[0])
 		*saveSettings.UploadRate = int(receivedArgs[1])
@@ -67,7 +67,7 @@ func torrentRestart(saveSettings serviceSettings, receivedArgs []int64, srv *htt
 	
 	select {
 	case err := <-procError:
-		log.Println(err)
+		log.Println("Error:", err)
 		quit(srv)
 
 	case <-procQuit:
@@ -81,9 +81,21 @@ func torrentRestart(saveSettings serviceSettings, receivedArgs []int64, srv *htt
 		}
 
 		cl.Close()
-		cl = startTorrent(saveSettings)
 
-		torrentRestart(saveSettings, receivedArgs, srv)
+		select {
+		case err := <-procError:
+			log.Println("Error:", err)
+			quit(srv)
+
+		case <-procQuit:
+			quit(srv)
+
+		case <-cl.Closed():
+			cl = nil
+			cl = startTorrentClient(saveSettings)
+
+			waitingForSignals(saveSettings, receivedArgs, srv)
+		}
 	}
 }
 
@@ -101,8 +113,6 @@ func main() {
 	settings.UploadRate = flag.Int("uprate", 256, "upload speed rate in Kbps")
 	settings.MaxConnections = flag.Int("maxconn", 40, "max connections per torrent")
 	settings.NoDHT = flag.Bool("nodht", false, "disable dht")
-	settings.DisableIPv6 = flag.Bool("disableIPv6", false, "disable IPv6")
-	settings.DisableUTP = flag.Bool("disableutp", false, "disable utp protocol")
 	settings.EnableLog = flag.Bool("log", false, "enable log messages")
 	settings.StorageType = flag.String("storagetype", "", "select storage type (must be set to \"memory\" or \"piecefile\" or \"file\")")
 	settings.Background = flag.Bool("background", false, "run the server in the background")
@@ -184,8 +194,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	cl = startTorrent(settings)
-	srv := startHTTPServer(fmt.Sprintf("%s:%d", *settings.Host, *settings.Port), *settings.CORS)
-	//wait
-	torrentRestart(settings, []int64 {int64(*settings.DownloadRate), int64(*settings.UploadRate)}, srv)
+	cl = startTorrentClient(settings)
+	srv := startHTTPServer(*settings.Host, *settings.Port, *settings.CORS)
+
+	waitingForSignals(settings, []int64 {int64(*settings.DownloadRate), int64(*settings.UploadRate)}, srv)
 }

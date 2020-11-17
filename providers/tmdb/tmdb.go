@@ -1,11 +1,17 @@
 package tmdb
 
 import (
-	"net/http"
-	"io/ioutil"
 	"crypto/tls"
+	"encoding/json"
+	"io/ioutil"
+	"net/http"	
 	"time"
 )
+
+type tmdbResponse struct {
+    TotalResults int `json:"total_results"`
+    Id int `json:"id"`
+}
 
 var TMDBKey string = ""
 
@@ -32,7 +38,7 @@ func MirrorTmdbDiscover(qtype string, genretype string, sort string, date string
 
 	req, err := http.NewRequest("GET", requesturl, nil)
 	if err != nil {
-		return "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}"
+		return ""
 	}
 
 	//req.Header.Set("User-Agent", UserAgent)	
@@ -43,13 +49,19 @@ func MirrorTmdbDiscover(qtype string, genretype string, sort string, date string
 	client := &http.Client{Transport: tr, Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}"
+		return ""
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}"
+		return ""
+	}
+
+	var message tmdbResponse
+	err = json.Unmarshal(body, &message)
+	if err != nil || message.TotalResults == 0 {
+		return ""
 	}
 	
 	return string(body)
@@ -58,7 +70,7 @@ func MirrorTmdbDiscover(qtype string, genretype string, sort string, date string
 func MirrorTmdbSearch(qtype string, lang string, cpage string, typedtext string) string {
 	req, err := http.NewRequest("GET", "https://api.themoviedb.org/3/search/" + qtype + "?api_key=" + TMDBKey + "&language=" + lang + "&page=" + cpage + "&query=" + typedtext, nil)
 	if err != nil {
-		return "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}"
+		return ""
 	}
 
 	//req.Header.Set("User-Agent", UserAgent)	
@@ -69,13 +81,19 @@ func MirrorTmdbSearch(qtype string, lang string, cpage string, typedtext string)
 	client := &http.Client{Transport: tr, Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}"
+		return ""
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}"
+		return ""
+	}
+
+	var message tmdbResponse
+	err = json.Unmarshal(body, &message)
+	if err != nil || message.TotalResults == 0 {
+		return ""
 	}
 	
 	return string(body)
@@ -89,7 +107,7 @@ func MirrorTmdbInfo(qtype string, tmdbid string, lang string) string {
 
 	req, err := http.NewRequest("GET", requesturl, nil)
 	if err != nil {
-		return "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}"
+		return ""
 	}
 
 	//req.Header.Set("User-Agent", UserAgent)	
@@ -100,13 +118,19 @@ func MirrorTmdbInfo(qtype string, tmdbid string, lang string) string {
 	client := &http.Client{Transport: tr, Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}"
+		return ""
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}"
+		return ""
+	}
+
+	var message tmdbResponse
+	err = json.Unmarshal(body, &message)
+	if err != nil || message.Id == 0 {
+		return ""
 	}
 	
 	return string(body)
