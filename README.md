@@ -1,6 +1,8 @@
 # White Raven Server
 
-White Raven Server is a REST-like API controlled torrent client application to find movies and tv shows from various sources and stream them over http connection. Mainly created for [White Raven](https://github.com/silentmurdock/whiteraven), which is a torrent player application for  Samsung Smart TV E, F, H series.
+**White Raven Server is a REST-like API controlled torrent client application to find movies and tv shows from various sources and stream them over http connection. Mainly created for [White Raven](https://github.com/silentmurdock/whiteraven), which is a torrent player application for  Samsung Smart TV E, F, H series.**
+
+<br/>
 
 ## HTTP API Functions
 ### Server and Client related
@@ -42,7 +44,7 @@ White Raven Server is a REST-like API controlled torrent client application to f
 * **-host** `string` listening server ip
 * **-log** enable log messages
 * **-maxconn** `int` max connections per torrent (`default 40`)
-* **-memorysize** `int` specify the storage memory size in MB if storagetype is set to "memory" (`minimum 64`) (`default 64`)
+* **-memorysize** `int` specify the storage memory size in MB if storagetype is set to "memory" (`default 64`)
 * **-nodht** disable dht
 * **-osuseragent**`string` set external OpenSubtitles user agent
 * **-port** `int` listening port (`default 9000`)
@@ -118,6 +120,27 @@ $ ./built/linux/x64/wrserver -storagetype="memory"
 ```
 $ ./built/linux/x64/wrserver -storagetype="file" -dir="downloads"
 ```
+<br/>
+
+## Note For Commercial Use
+
+For a commercial application, please use your own [The Movie Database](https://www.themoviedb.org/) API key and [OpenSubtitles](https://www.opensubtitles.org) user agent string.  
+There are two simple ways to do this.
+
+**Build with the following ldflags:**
+```
+$ -ldflags="-s -w -X 'main.TMDBKey=YOUR_TMDB_KEY' -X 'main.OSUserAgent=YOUR_OPENSUBTITLES_USER_AGENT_STRING'"
+```
+**Run with the following parameters:**
+```
+$ -tmdbkey="YOUR_TMDB_KEY" -osuseragent="YOUR_OPENSUBTITLES_USER_AGENT_STRING"
+```
+<br/>
+
+## Note For Releases
+
+The releases always compressed with the latest version of [UPX](https://upx.github.io), an advanced executable file packer to decrease the size of the application. This is important for embedded devices such as Samsung Smart TVs because they have a very limited amount of resources!
+
 <br/>
 
 ## License
