@@ -144,7 +144,7 @@ func addMagnet(uri string) *torrent.Torrent {
 	} else {
 		select {
 		case <-t.GotInfo():
-			// Maximum 8 MByte piece length allowed
+			// Maximum 8 MByte piece length supported.
 			if t.Info().PieceLength <= (1 << 23) {
 				torrents[t.InfoHash().String()] = &torrentLeaf {
 					torrent: t,
@@ -204,6 +204,7 @@ func getFileByPath(search string, files []*torrent.File) int {
 
 func serveTorrentFile(w http.ResponseWriter, r *http.Request, file *torrent.File) {
 	reader := file.NewReader()
+	// Never set a smaller buffer than the maximum torrent piece length!
 	reader.SetReadahead(8 * 1 << 20)
 
 	path := file.FileInfo().Path

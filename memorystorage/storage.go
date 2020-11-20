@@ -136,7 +136,7 @@ func storageDelete(mu *sync.Mutex) {
 func FreeMemoryPercent(mt *memoryTorrent, threshold uint64, percent int) {
     runtime.ReadMemStats(&memStats)
 
-    if memStats.Alloc / (1 << 20) > threshold + ((threshold * uint64(percent)) / 100) {
+    if memStats.Alloc / (1 << 20) > threshold { // + ((threshold * uint64(percent)) / 100) {
         //log.Printf("Alloc = %v MiB, NumGC = %v\n", memStats.Alloc / (1 << 20), memStats.NumGC)
         var deleteCount = (maxCount * percent) / 100
 
