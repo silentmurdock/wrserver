@@ -114,7 +114,7 @@ func main() {
 	settings.MaxConnections = flag.Int("maxconn", 40, "max connections per torrent")
 	settings.NoDHT = flag.Bool("nodht", false, "disable dht")
 	settings.EnableLog = flag.Bool("log", false, "enable log messages")
-	settings.StorageType = flag.String("storagetype", "", "select storage type (must be set to \"memory\" or \"piecefile\" or \"file\")")
+	settings.StorageType = flag.String("storagetype", "memory", "select storage type (must be set to \"memory\" or \"piecefile\" or \"file\")")
 	settings.Background = flag.Bool("background", false, "run the server in the background")
 	settings.CORS = flag.Bool("cors", false, "enable CORS")
 	settings.MemorySize = flag.Int64("memorysize", 64, "specify the storage memory size in MB if storagetype is set to \"memory\" (minimum 64)") // 64MB is optimal for TVs
