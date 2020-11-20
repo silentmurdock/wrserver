@@ -6,34 +6,34 @@
 
 ## HTTP API Functions
 ### Server and Client related
-* [Get server information](documents/api/about.md) : `GET /api/about`
-* [Stop server](documents/api/stop.md) : `GET /api/stop`
-* [Restart torrent client](documents/api/restart.md) : `GET /api/restart/downrate/{downrate}/uprate/{uprate}`
+* [Get server information](documents/api/about.md)
+* [Stop server](documents/api/stop.md)
+* [Restart torrent client](documents/api/restart.md)
 
 ### Torrent related
-* [Add torrent by hash](documents/api/add.md) : `GET /api/add/{hash}`
-* [Delete torrent by hash](documents/api/delete.md) : `GET /api/delete/{hash}`
-* [Delete all running torrents](documents/api/deleteall.md) : `GET /api/deleteall`
-* [Get all running torrents](documents/api/torrents.md) : `GET /api/torrents`
-* [Get running torrent statistics by hash](documents/api/stats.md) : `GET /api/stats/{hash}`
-* [Stream or download the selected file](documents/api/get.md) : `GET /api/get/{hash}/{base64path}`
+* [Add torrent by hash](documents/api/add.md)
+* [Delete torrent by hash](documents/api/delete.md)
+* [Delete all running torrents](documents/api/deleteall.md)
+* [Get all running torrents](documents/api/torrents.md)
+* [Get running torrent statistics by hash](documents/api/stats.md)
+* [Stream or download the selected file](documents/api/get.md)
 
 ### Movie or TV Show related
-* [Get movie magnet by IMDB id](documents/api/moviebyimdb.md) : `GET /api/getmoviemagnet/imdb/{imdb}/providers/{providers}`
-* [Get movie magnet by query text](documents/api/moviebytext.md) : `GET /api/getmoviemagnet/query/{query}/providers/{providers}`
-* [Get movie magnet by IMDB id and query text at once](documents/api/moviebyboth.md) : `GET /api/getmoviemagnet/imdb/{imdb}/query/{query}/providers/{providers}`
-* [Get show magnet by IMDB id](documents/api/showbyimdb.md) : `GET /api/getshowmagnet/imdb/{imdb}/season/{season}/episode/{episode}/providers/{providers}`
-* [Get show magnet by query text](documents/api/showbytext.md) : `GET /api/getshowmagnet/query/{query}/season/{season}/episode/{episode}/providers/{providers}`
-* [Get show magnet by IMDB id and query text at once](documents/api/showbyboth.md) : `GET /api/getshowmagnet/imdb/{imdb}/query/{query}/season/{season}/episode/{episode}/providers/{providers}`
-* [Discover movies or tv shows](documents/api/tmdbdiscover.md) : `GET /api/tmdbdiscover/type/{type}/genretype/{genretype}/sort/{sort}/date/{date}/lang/{lang}/page/{page}`
-* [Search movies or tv shows by query text](documents/api/tmdbsearch.md) : `GET /api/tmdbsearch/type/{type}/lang/{lang}/page/{page}/text/{text}`
-* [Get more info about movie or tv show by TMDB id](documents/api/tmdbinfo.md) : `GET /api/tmdbinfo/type/{type}/tmdbid/{tmdbid}/lang/{lang}`
+* [Get movie magnet by IMDB id](documents/api/moviebyimdb.md)
+* [Get movie magnet by query text](documents/api/moviebytext.md)
+* [Get movie magnet by IMDB id and query text at once](documents/api/moviebyboth.md)
+* [Get show magnet by IMDB id](documents/api/showbyimdb.md)
+* [Get show magnet by query text](documents/api/showbytext.md)
+* [Get show magnet by IMDB id and query text at once](documents/api/showbyboth.md)
+* [Discover movies or tv shows](documents/api/tmdbdiscover.md)
+* [Search movies or tv shows by query text](documents/api/tmdbsearch.md)
+* [Get more info about movie or tv show by TMDB id](documents/api/tmdbinfo.md)
 
 ### Subtitle related
-* [Search subtitles by IMDB id](documents/api/subtitlesbyimdb.md) : `GET /api/subtitlesbyimdb/{imdb}/lang/{lang}/season/{season}/episode/{episode}`
-* [Search subtitles by query text](documents/api/subtitlesbytext.md) : `GET /api/subtitlesbytext/{text}/lang/{lang}/season/{season}/episode/{episode}`
-* [Search subtitles by inner file hash](documents/api/subtitlesbyhash.md) : `GET /api/subtitlesbyfile/{hash}/{base64path}/lang/{lang}`
-* [Download subtitle file](documents/api/getsubtitle.md) : `GET /api/getsubtitle/{base64path}/encode/{encode}/subtitle.srt`
+* [Search subtitles by IMDB id](documents/api/subtitlesbyimdb.md)
+* [Search subtitles by query text](documents/api/subtitlesbytext.md)
+* [Search subtitles by inner file hash](documents/api/subtitlesbyhash.md)
+* [Download subtitle file](documents/api/getsubtitle.md)
 <br/>
 
 ## Command-Line Arguments
@@ -41,14 +41,15 @@
 * **-cors** enable CORS
 * **-dir** `string` specify the directory where files will be downloaded to if storagetype is set to "piecefile" or "file"
 * **-downrate** `int` download speed rate in Kbps (`default 4096`)
+* **-help** print this help message
 * **-host** `string` listening server ip
 * **-log** enable log messages
 * **-maxconn** `int` max connections per torrent (`default 40`)
-* **-memorysize** `int` specify the storage memory size in MB if storagetype is set to "memory" (`default 64`)
+* **-memorysize** `int` specify the storage memory size in MB if storagetype is set to "memory" (minimum 64) (`default 64`)
 * **-nodht** disable dht
 * **-osuseragent**`string` set external OpenSubtitles user agent
 * **-port** `int` listening port (`default 9000`)
-* **-storagetype**`string` select storage type (must be set to "memory" or "piecefile" or "file")
+* **-storagetype**`string` select storage type (must be set to "memory" or "piecefile" or "file") (`default "memory"`)
 * **-tmdbkey**`string` set external TMDB API key
 * **-uprate** `int` upload speed rate in Kbps (`default 256`)
 <br/>
@@ -65,82 +66,50 @@ $ go get -v -u github.com/silentmurdock/wrserver
 $ set GOOS=linux
 $ set GOARCH=arm
 $ set GOARM=7
-$ go build -ldflags="-s -w" -mod=vendor -o built\linux\arm7\wrserver
+$ go build -ldflags="-s -w" -mod=vendor -o wrserver
 ```
-**Build in vendor mode for Windows i386:**
+**Build in vendor mode for Windows x32:**
 ```
 $ set GOOS=windows
 $ set GOARCH=386
-$ go build -ldflags="-s -w" -mod=vendor -o built\windows\i386\wrserver.exe
+$ go build -ldflags="-s -w" -mod=vendor -o wrserver.exe
 ```
-**Build in vendor mode for Linux i386:**
+**Build in vendor mode for Windows x64:**
+```
+$ set GOOS=windows
+$ set GOARCH=amd64
+$ set CGO_ENABLED=0
+$ go build -ldflags="-s -w" -mod=vendor -o wrserver.exe
+```
+**Build in vendor mode for Linux x32:**
 ```
 $ set GOOS=linux
 $ set GOARCH=386
-$ go build -ldflags="-s -w" -mod=vendor -o built\linux\i386\wrserver
-```
-
-### Build On Linux
-**Download:**
-```
-$ go get -v -u github.com/silentmurdock/wrserver
-```
-**Build in vendor mode for Samsung Smart TV E, F, H ARM series:**
-```
-$ env GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -mod=vendor -o built/linux/arm7/wrserver
-```
-**Build in vendor mode for Windows i386:**
-```
-$ env GOOS=windows GOARCH=386 go build -ldflags="-s -w" -mod=vendor -o built/windows/i386/wrserver.exe
+$ go build -ldflags="-s -w" -mod=vendor -o wrserver
 ```
 **Build in vendor mode for Linux x64:**
 ```
-$ env GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -mod=vendor -o built/linux/x64/wrserver
+$ set GOOS=linux
+$ set GOARCH=amd64
+$ go build -ldflags="-s -w" -mod=vendor -o wrserver
 ```
 <br/>
 
 ## Run The Server
 
-### Run The Server On Windows
-**Serve torrent data with i386 executable from memory:**
+**Simply run the executable file without parameters to serve torrent data from memory.**
 ```
-$ built\windows\i386\wrserver -storagetype="memory"
+$ wrserver
 ```
-**Serve torrent data with i386 executable from local disk:**
+**Run the executable file with the following parameters to serve torrent data from local disk.**
 ```
-$ built\windows\i386\wrserver -storagetype="file" -dir="downloads"
-```
-
-### Run The Server On Linux
-**Serve torrent data with x64 executable from memory:**
-```
-$ ./built/linux/x64/wrserver -storagetype="memory"
-```
-**Serve torrent data with x64 executable from local disk:**
-```
-$ ./built/linux/x64/wrserver -storagetype="file" -dir="downloads"
-```
-<br/>
-
-## Note For Commercial Use
-
-For a commercial application, please use your own [The Movie Database](https://www.themoviedb.org/) API key and [OpenSubtitles](https://www.opensubtitles.org) user agent string.  
-There are two simple ways to do this.
-
-**Build with the following ldflags:**
-```
-$ -ldflags="-s -w -X 'main.TMDBKey=YOUR_TMDB_KEY' -X 'main.OSUserAgent=YOUR_OPENSUBTITLES_USER_AGENT_STRING'"
-```
-**Run with the following parameters:**
-```
-$ -tmdbkey="YOUR_TMDB_KEY" -osuseragent="YOUR_OPENSUBTITLES_USER_AGENT_STRING"
+$ wrserver -storagetype="file" -dir="downloads"
 ```
 <br/>
 
 ## Note For Releases
 
 The releases always compressed with the latest version of [UPX](https://upx.github.io), an advanced executable file packer to decrease the size of the application. This is important for embedded devices such as Samsung Smart TVs because they have a very limited amount of resources!
-
 <br/>
 
 ## License
