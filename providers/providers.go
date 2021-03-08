@@ -14,6 +14,7 @@ import (
 	"github.com/silentmurdock/wrserver/providers/itorrent"
 	"github.com/silentmurdock/wrserver/providers/rarbg"
 	"github.com/silentmurdock/wrserver/providers/x1337x"
+	"github.com/silentmurdock/wrserver/providers/tvmaze"
 	out "github.com/silentmurdock/wrserver/providers/output"
 )
 
@@ -188,4 +189,8 @@ func MirrorTmdbSearch(qtype string, lang string, cpage string, typedtext string)
 
 func MirrorTmdbInfo(qtype string, tmdbid string, lang string) string {
 	return tmdb.MirrorTmdbInfo(qtype, tmdbid, lang)
+}
+
+func GetTvMazeEpisodes(tvdb string, imdb string) string {
+	return tvmaze.GetTvMazeEpisodes(tvdb, imdb)
 }

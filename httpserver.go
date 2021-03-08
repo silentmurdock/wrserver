@@ -40,6 +40,8 @@ var (
 	    ReadBufferSize:  1024,
 	    WriteBufferSize: 1024,
 	}
+
+	ws *websocket.Conn
 )
 
 func setOSUserAgent(userAgent string) {
@@ -111,7 +113,7 @@ func decodeData(encData []byte, enc string) string {
     return string(out)
 }
 
-func handleAPI(cors bool) {
+func handleAPI(cors bool) http.Handler {
 	routerAPI := mux.NewRouter()
 	routerAPI.SkipClean(true)
 
@@ -752,6 +754,18 @@ func handleAPI(cors bool) {
 		}
 	})
 
+	routerAPI.HandleFunc(urlAPI+"tvmazeepisodes/tvdbid/{tvdbid}/imdbid/{imdbid}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		log.Println("Get TVMaze episodes")
+
+		output := providers.GetTvMazeEpisodes(vars["tvdbid"], vars["imdbid"])
+		if output != "" {
+			io.WriteString(w, outputTvMazeData(output))
+		} else {
+			http.Error(w, noTvMazeDataFound(), http.StatusNotFound)
+		}
+	})
+
 	routerAPI.HandleFunc(urlAPI+"receivemagnet/{todo}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		io.WriteString(w, checkReceivedMagnetHash(vars["todo"]))
@@ -760,7 +774,7 @@ func handleAPI(cors bool) {
 	routerAPI.HandleFunc(urlAPI+"websocket", func(w http.ResponseWriter, r *http.Request) {
 		upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
-		ws, _ := upgrader.Upgrade(w, r, nil) // Error ignored
+		ws, _ = upgrader.Upgrade(w, r, nil) // Error ignored
 
 		for {
 			// Read message from ws
@@ -801,30 +815,16 @@ func handleAPI(cors bool) {
         }
 	})
 
-	// Enable CORS for api urls if required
-	if cors == false {
-		http.Handle(urlAPI, routerAPI)
-	} else {
-		http.Handle(urlAPI, handlers.CORS(handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}), handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}), handlers.AllowedOrigins([]string{"*"}))(routerAPI))
-	}
-
 	// Create torrent magnet send page from main page
-	sendMagnetPage := mux.NewRouter()
-	sendMagnetPage.SkipClean(true)
-
-	sendMagnetPage.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, resourceNotFound(), http.StatusNotFound)
-	})
-
-	sendMagnetPage.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {		
+	routerAPI.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {		
 		io.WriteString(w, createServerPage())
 	})
 
-	// Enable CORS for torrent sender page if required
+	// Enable CORS for api urls if required
 	if cors == false {
-		http.Handle("/", sendMagnetPage)
+		return routerAPI
 	} else {
-		http.Handle("/", handlers.CORS(handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}), handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}), handlers.AllowedOrigins([]string{"*"}))(sendMagnetPage))
+		return handlers.CORS(handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}), handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}), handlers.AllowedOrigins([]string{"*"}))(routerAPI)
 	}
 }
 
@@ -845,6 +845,7 @@ func startHTTPServer(host string, port int, cors bool) *http.Server {
 		Addr: fmt.Sprintf("%s:%d", host, port),
 		ReadTimeout:  38 * time.Second,
 		WriteTimeout: 38 * time.Second,
+		Handler: handleAPI(cors),
 	}
 
 	localIP := host
@@ -854,8 +855,6 @@ func startHTTPServer(host string, port int, cors bool) *http.Server {
 
 	// Must appear
 	fmt.Printf("White Raven Server Version %s Started On Address: http://%s:%d\n", version, localIP, port)
-
-	handleAPI(cors)
 
 	go func() {
 		if err := newsrv.ListenAndServe(); err != nil {
