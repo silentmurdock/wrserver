@@ -398,7 +398,7 @@ func noTmdbDataFound() string {
 }
 
 func outputTvMazeData(data string) string {
-	return "{\"success\":true,\"results\":[" + data + "]}"
+	return "{\"success\":true,\"results\":" + data + "}"
 }
 
 func noTvMazeDataFound() string {

@@ -754,11 +754,11 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"tvmazeepisodes/tvdbid/{tvdbid}/imdbid/{imdbid}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc(urlAPI+"tvmazeepisodes/tvdb/{tvdb}/imdb/{imdb}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Println("Get TVMaze episodes")
 
-		output := providers.GetTvMazeEpisodes(vars["tvdbid"], vars["imdbid"])
+		output := providers.GetTvMazeEpisodes(vars["tvdb"], vars["imdb"])
 		if output != "" {
 			io.WriteString(w, outputTvMazeData(output))
 		} else {
