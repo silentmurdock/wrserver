@@ -28,6 +28,7 @@
 * [Discover movies or tv shows](documents/api/tmdbdiscover.md)
 * [Search movies or tv shows by query text](documents/api/tmdbsearch.md)
 * [Get more info about movie or tv show by TMDB id](documents/api/tmdbinfo.md)
+* [Get show episodes by TheTVDB id or IMDB id](documents/api/tvmazeepisodes.md)
 
 ### Subtitle related
 * [Search subtitles by IMDB id](documents/api/subtitlesbyimdb.md)

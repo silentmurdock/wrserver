@@ -28,6 +28,6 @@ Get server information.
 ```json
 {
 	"success": true,
-	"message": "White Raven Server v0.4.1"
+	"message": "White Raven Server v0.4.2"
 }
 ```
