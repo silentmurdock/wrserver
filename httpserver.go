@@ -114,18 +114,21 @@ func decodeData(encData []byte, enc string) string {
 }
 
 func handleAPI(cors bool) http.Handler {
-	routerAPI := mux.NewRouter()
-	routerAPI.SkipClean(true)
+	mainRouter := mux.NewRouter()
+	mainRouter.SkipClean(true)
+	mainRouter.UseEncodedPath()
+	
+	routerAPI := mainRouter.PathPrefix(urlAPI).Subrouter()
 
 	routerAPI.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, resourceNotFound(), http.StatusNotFound)
 	})
 
-	routerAPI.HandleFunc(urlAPI+"about", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, serverInfo())
 	})
 
-	routerAPI.HandleFunc(urlAPI+"stop", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/stop", func(w http.ResponseWriter, r *http.Request) {
 		_, err := io.WriteString(w, serverStop())
 		if err == nil {
 			go func() {
@@ -140,7 +143,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"restart/downrate/{downrate}/uprate/{uprate}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/restart/downrate/{downrate}/uprate/{uprate}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 
 		for _, thistorrent := range torrents {
@@ -168,7 +171,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"add/{hash}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/add/{hash}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		magnet := "magnet:?xt=urn:btih:" + vars["hash"]
 
@@ -185,15 +188,14 @@ func handleAPI(cors bool) http.Handler {
 			} else if len(torrents) == 0 {
 				http.Error(w, failedToAddTorrent(), http.StatusNotFound)
 				return
+			} else if len(torrents) > 0 {
+				http.Error(w, onlyOneTorrent(), http.StatusNotFound)
+				return
 			}
-		}
-
-		if len(torrents) > 0 {
-			http.Error(w, onlyOneTorrent(), http.StatusNotFound)
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"delete/{hash}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/delete/{hash}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		if t, ok := torrents[vars["hash"]]; ok {
 
@@ -209,7 +211,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"deleteall", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/deleteall", func(w http.ResponseWriter, r *http.Request) {
 		if len(torrents) > 0 {
 			for _, thistorrent := range torrents {
 				log.Println("Delete torrent:", thistorrent.torrent.InfoHash().String())
@@ -224,7 +226,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"get/{hash}/{base64path}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/get/{hash}/{base64path}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 
 		if d, err := base64.StdEncoding.DecodeString(vars["base64path"]); err == nil {
@@ -264,7 +266,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"stats/{hash}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/stats/{hash}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		
 		if t, ok := torrents[vars["hash"]]; ok {					
@@ -276,7 +278,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"subtitlesbyimdb/{imdb}/lang/{lang}/season/{season}/episode/{episode}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/subtitlesbyimdb/{imdb}/lang/{lang}/season/{season}/episode/{episode}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 
 		// Create Opensubtitles client
@@ -373,7 +375,7 @@ func handleAPI(cors bool) http.Handler {
 		io.WriteString(w, subtitleFilesList(r.Host, res, langs[0]))
 	})
 
-	routerAPI.HandleFunc(urlAPI+"subtitlesbytext/{text}/lang/{lang}/season/{season}/episode/{episode}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/subtitlesbytext/{text}/lang/{lang}/season/{season}/episode/{episode}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 
 		// Create Opensubtitles client
@@ -469,7 +471,7 @@ func handleAPI(cors bool) http.Handler {
 		io.WriteString(w, subtitleFilesList(r.Host, res, langs[0]))
 	})
 
-	routerAPI.HandleFunc(urlAPI+"subtitlesbyfile/{hash}/{base64path}/lang/{lang}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/subtitlesbyfile/{hash}/{base64path}/lang/{lang}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 
 		if d, err := base64.StdEncoding.DecodeString(vars["base64path"]); err == nil {
@@ -572,7 +574,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"getsubtitle/{base64path}/encode/{encode}/subtitle.srt", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/getsubtitle/{base64path}/encode/{encode}/subtitle.srt", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 
 		if subtitleurl, err := base64.StdEncoding.DecodeString(vars["base64path"]); err == nil {
@@ -625,7 +627,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"torrents", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/torrents", func(w http.ResponseWriter, r *http.Request) {
 		if len(torrents) > 0 {
 			io.WriteString(w, showAllTorrent())
 		} else {
@@ -634,7 +636,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"getmoviemagnet/imdb/{imdb}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/getmoviemagnet/imdb/{imdb}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Printf("Getting movie magnet link by this imdb id: %v\n", vars["imdb"])
 
@@ -648,7 +650,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"getmoviemagnet/query/{query}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/getmoviemagnet/query/{query}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Printf("Getting movie magnet link by this query: %v\n", vars["query"])
 
@@ -662,7 +664,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"getmoviemagnet/imdb/{imdb}/query/{query}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/getmoviemagnet/imdb/{imdb}/query/{query}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Printf("Getting movie magnet link by this imdb id: %v, query: %v\n", vars["imdb"], vars["query"])
 
@@ -676,7 +678,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"getshowmagnet/imdb/{imdb}/season/{season}/episode/{episode}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/getshowmagnet/imdb/{imdb}/season/{season}/episode/{episode}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Printf("Getting tv show magnet link by this imdb id: %v, season: %v, episode: %v\n", vars["imdb"], vars["season"], vars["episode"])
 
@@ -690,7 +692,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"getshowmagnet/query/{query}/season/{season}/episode/{episode}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/getshowmagnet/query/{query}/season/{season}/episode/{episode}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Printf("Getting tv show magnet link by this query: %v, season: %v, episode: %v\n", vars["query"], vars["season"], vars["episode"])
 
@@ -704,7 +706,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"getshowmagnet/imdb/{imdb}/query/{query}/season/{season}/episode/{episode}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/getshowmagnet/imdb/{imdb}/query/{query}/season/{season}/episode/{episode}/providers/{providers}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Printf("Getting tv show magnet link by this imdb id: %v, query: %v, season: %v, episode: %v\n", vars["imdb"], vars["query"], vars["season"], vars["episode"])
 
@@ -718,7 +720,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"tmdbdiscover/type/{type}/genretype/{genretype}/sort/{sort}/date/{date}/lang/{lang}/page/{page}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/tmdbdiscover/type/{type}/genretype/{genretype}/sort/{sort}/date/{date}/lang/{lang}/page/{page}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Println("Get TMDB list by genre")
 
@@ -730,7 +732,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"tmdbsearch/type/{type}/lang/{lang}/page/{page}/text/{text}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/tmdbsearch/type/{type}/lang/{lang}/page/{page}/text/{text}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Println("Get TMDB search")
 
@@ -742,7 +744,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"tmdbinfo/type/{type}/tmdbid/{tmdbid}/lang/{lang}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/tmdbinfo/type/{type}/tmdbid/{tmdbid}/lang/{lang}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Println("Get TMDB info")
 
@@ -754,7 +756,7 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"tvmazeepisodes/tvdb/{tvdb}/imdb/{imdb}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/tvmazeepisodes/tvdb/{tvdb}/imdb/{imdb}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		log.Println("Get TVMaze episodes")
 
@@ -766,12 +768,12 @@ func handleAPI(cors bool) http.Handler {
 		}
 	})
 
-	routerAPI.HandleFunc(urlAPI+"receivemagnet/{todo}", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/receivemagnet/{todo}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		io.WriteString(w, checkReceivedMagnetHash(vars["todo"]))
 	})
 
-	routerAPI.HandleFunc(urlAPI+"websocket", func(w http.ResponseWriter, r *http.Request) {
+	routerAPI.HandleFunc("/websocket", func(w http.ResponseWriter, r *http.Request) {
 		upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
 		ws, _ = upgrader.Upgrade(w, r, nil) // Error ignored
@@ -816,15 +818,15 @@ func handleAPI(cors bool) http.Handler {
 	})
 
 	// Create torrent magnet send page from main page
-	routerAPI.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {		
+	mainRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {		
 		io.WriteString(w, createServerPage())
 	})
 
 	// Enable CORS for api urls if required
 	if cors == false {
-		return routerAPI
+		return mainRouter
 	} else {
-		return handlers.CORS(handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}), handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}), handlers.AllowedOrigins([]string{"*"}))(routerAPI)
+		return handlers.CORS(handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}), handlers.AllowedMethods([]string{"GET", "POST", "PUT", "HEAD", "OPTIONS"}), handlers.AllowedOrigins([]string{"*"}))(mainRouter)
 	}
 }
 

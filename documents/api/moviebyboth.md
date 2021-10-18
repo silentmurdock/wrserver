@@ -25,7 +25,6 @@ Search magnet links for movie by IMDB id and query text at once.
 
 | Provider | Type | Website |
 | --- | --- | --- |
-| `pt` | string | POPCORN TIME|
 | `yts` | string | YTS|
 | `itorrent` | string | ITORRENT|
 | `rarbg` | string | RARBG|

@@ -33,7 +33,7 @@ type OutputShowStruct struct {
 }
 
 func GetInfoHash(magnet string) string {
-	re := regexp.MustCompile("magnet:\\?xt=urn:btih:([a-zA-Z0-9]*)")
+	re := regexp.MustCompile(`magnet:\?xt=urn:btih:([a-zA-Z0-9]*)`)
     hash := re.FindAllSubmatch([]byte(magnet), -1)
     if hash == nil {
         return ""
@@ -69,10 +69,10 @@ func GuessQualityFromString(value string) string {
 }
 
 func DecodeSize(value string) string {
-	re := regexp.MustCompile("[0-9.]+")
+	re := regexp.MustCompile(`[0-9.]+`)
 	stringsize := re.FindAllString(value, -1)
 	f, _ := strconv.ParseFloat(stringsize[0], 64)
-	re = regexp.MustCompile("(?:GB|MB)")
+	re = regexp.MustCompile(`(?:GB|MB)`)
 	unit := re.FindAllString(value, -1)
 	if unit[0] == "GB" {
 		f = f * 1024 * 1024 * 1024
@@ -122,7 +122,7 @@ func RemoveFileExtension(filename string) string {
 }
 
 func CleanString(value string) string {
-	unwanted, err := regexp.Compile("[^a-zA-Z0-9 _:.+-]+")
+	unwanted, err := regexp.Compile(`[^a-zA-Z0-9 _:.+-]+`)
     if err == nil {
         value = unwanted.ReplaceAllString(value, "")
     }
