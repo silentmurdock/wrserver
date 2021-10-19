@@ -81,7 +81,7 @@ func scrapeMovieData(movieUrl string, innerCh chan<-out.OutputMovieStruct) {
             size = out.DecodeSize(item.Next().Text())
         case "Peer":
         	value := item.Next().Text()
-        	re := regexp.MustCompile("[0-9]+")
+        	re := regexp.MustCompile(`[0-9]+`)
         	stringsize := re.FindAllString(value, -1)
         	seedInt, _ = strconv.ParseInt(stringsize[0], 10, 64)
             seeds = stringsize[0]
@@ -181,7 +181,7 @@ func scrapeShowData(movieUrl string, season string, episode string, innerCh chan
             size = out.DecodeSize(item.Next().Text())
         case "Peer":
             value := item.Next().Text()
-            re := regexp.MustCompile("[0-9]+")
+            re := regexp.MustCompile(`[0-9]+`)
             stringsize := re.FindAllString(value, -1)
             seedInt, _ = strconv.ParseInt(stringsize[0], 10, 64)
             seeds = stringsize[0]

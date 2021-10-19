@@ -26,7 +26,6 @@ Search magnet links for tv show by IMDB id and query text at once.
 
 | Provider | Type | Website |
 | --- | --- | --- |
-| `pt` | string | POPCORN TIME|
 | `eztv` | string | EZTV|
 | `itorrent` | string | ITORRENT|
 | `rarbg` | string | RARBG|

@@ -58,41 +58,42 @@
 ## Build Instructions
 
 ### Build On Windows
-**Download:**
+**Build for Samsung Smart TV E, F, H ARM series:**
 ```
-$ go get -v -u github.com/silentmurdock/wrserver
+set GO111MODULE=on
+set GOOS=linux
+set GOARCH=arm
+set GOARM=7
+go build -ldflags="-s -w" -o wrserver
 ```
-**Build in vendor mode for Samsung Smart TV E, F, H ARM series:**
+**Build for Windows (x32):**
 ```
-$ set GOOS=linux
-$ set GOARCH=arm
-$ set GOARM=7
-$ go build -ldflags="-s -w" -mod=vendor -o wrserver
+set GO111MODULE=on
+set GOOS=windows
+set GOARCH=386
+go build -ldflags="-s -w" -o wrserver.exe
 ```
-**Build in vendor mode for Windows x32:**
+**Build for Windows (x64):**
 ```
-$ set GOOS=windows
-$ set GOARCH=386
-$ go build -ldflags="-s -w" -mod=vendor -o wrserver.exe
+set GO111MODULE=on
+set GOOS=windows
+set GOARCH=amd64
+set CGO_ENABLED=0
+go build -ldflags="-s -w" -o wrserver.exe
 ```
-**Build in vendor mode for Windows x64:**
+**Build for Linux (x32):**
 ```
-$ set GOOS=windows
-$ set GOARCH=amd64
-$ set CGO_ENABLED=0
-$ go build -ldflags="-s -w" -mod=vendor -o wrserver.exe
+set GO111MODULE=on
+set GOOS=linux
+set GOARCH=386
+go build -ldflags="-s -w" -o wrserver
 ```
-**Build in vendor mode for Linux x32:**
+**Build for Linux (x64):**
 ```
-$ set GOOS=linux
-$ set GOARCH=386
-$ go build -ldflags="-s -w" -mod=vendor -o wrserver
-```
-**Build in vendor mode for Linux x64:**
-```
-$ set GOOS=linux
-$ set GOARCH=amd64
-$ go build -ldflags="-s -w" -mod=vendor -o wrserver
+set GO111MODULE=on
+set GOOS=linux
+set GOARCH=amd64
+go build -ldflags="-s -w" -o wrserver
 ```
 <br/>
 
