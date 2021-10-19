@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/silentmurdock/wrserver/providers/yts"
-	"github.com/silentmurdock/wrserver/providers/pt"
 	"github.com/silentmurdock/wrserver/providers/eztv"
 	"github.com/silentmurdock/wrserver/providers/pto"
 	"github.com/silentmurdock/wrserver/providers/tmdb"
@@ -27,9 +26,6 @@ func GetMovieMagnet(imdbid string, query string, sources []string) []out.OutputM
 	if imdbid != "" {
 		for _, source := range sources {
 			switch strings.ToLower(source) {
-			case "pt":
-		        go pt.GetMovieMagnetByImdb(imdbid, ch)
-		        counter++
 		    case "yts":
 		    	go yts.GetMovieMagnetByImdb(imdbid, ch)
 		    	counter++
@@ -109,9 +105,6 @@ func GetShowMagnet(imdbid string, query string, season string, episode string, s
 			switch strings.ToLower(source) {
 		    case "eztv":
 		        go eztv.GetShowMagnetByImdb(imdbid, season, episode, ch)
-		        counter++
-		    case "pt":
-		        go pt.GetShowMagnetByImdb(imdbid, season, episode, ch)
 		        counter++
 		    case "itorrent":
 		        go itorrent.GetShowMagnetByImdb(imdbid, season, episode, ch)

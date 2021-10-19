@@ -17,7 +17,6 @@ Search magnet links for movie by IMDB id.
 
 | Provider | Type | Website |
 | --- | --- | --- |
-| `pt` | string | POPCORN TIME|
 | `yts` | string | YTS|
 | `itorrent` | string | ITORRENT|
 | `rarbg` | string | RARBG|
@@ -62,7 +61,7 @@ Search magnet links for movie by IMDB id.
 
 **Request** :
 
-`GET http://localhost:9000/api/getmoviemagnet/imdb/tt7556122/providers/pt,yts,itorrent`
+`GET http://localhost:9000/api/getmoviemagnet/imdb/tt7556122/providers/yts,itorrent`
 
 **Success Response** :
 

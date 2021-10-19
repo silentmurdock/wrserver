@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	version = "0.4.2"
+	version = "0.5.0"
 	resolveTimeout = time.Second * 35
 )
 
@@ -118,7 +118,7 @@ func decFileClients(path string, t *torrentLeaf) int {
 }
 
 func addMagnet(uri string) *torrent.Torrent {
-	spec, err := torrent.TorrentSpecFromMagnetURI(uri)
+	spec, err := torrent.TorrentSpecFromMagnetUri(uri)
 	if err != nil {
 		log.Println(err)
 		return nil
@@ -138,7 +138,7 @@ func addMagnet(uri string) *torrent.Torrent {
 	gettingTorrent = true
 
 	if t, err := cl.AddMagnet(uri); err != nil {
-		log.Panicln(err)
+		log.Println(err)
 		gettingTorrent = false
 		return nil
 	} else {
