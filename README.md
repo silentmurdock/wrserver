@@ -101,11 +101,11 @@ go build -ldflags="-s -w" -o wrserver
 
 **Simply run the executable file without parameters to serve torrent data from memory.**
 ```
-$ wrserver
+wrserver
 ```
 **Run the executable file with the following parameters to serve torrent data from local disk.**
 ```
-$ wrserver -storagetype="file" -dir="downloads"
+wrserver -storagetype="file" -dir="downloads"
 ```
 <br/>
 
