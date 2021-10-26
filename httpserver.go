@@ -116,7 +116,7 @@ func decodeData(encData []byte, enc string) string {
 func handleAPI(cors bool) http.Handler {
 	mainRouter := mux.NewRouter()
 	mainRouter.SkipClean(true)
-	mainRouter.UseEncodedPath()
+	//mainRouter.UseEncodedPath()
 	
 	routerAPI := mainRouter.PathPrefix(urlAPI).Subrouter()
 
